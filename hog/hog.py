@@ -54,11 +54,11 @@ class Hog(object):
         try:
             if self.method == 'GET':
                 r = requests.get(
-                    self.url, params=self.params, timeout=self.timeout
+                    self.url, params=self.params, headers=self.headers, timeout=self.timeout
                 )
             else:
                 r = requests.post(
-                    self.url, data=self.params, timeout=self.timeout
+                    self.url, data=self.params, headers=self.headers, timeout=self.timeout
                 )
 
             status = r.status_code
@@ -76,10 +76,11 @@ class Hog(object):
         if self.callback:
             self.callback(self.result)
 
-    def run(self, url, params=None, method='GET',
+    def run(self, method, url, params=None, headers=None,
             timeout=5, concurrency=10, requests=100, limit=0):
         self.url = url
         self.params = params
+        self.headers = headers
         self.method = method
         self.timeout = timeout
 
@@ -108,10 +109,10 @@ class Hog(object):
         return self.result
 
 
-def run(url, params=None, method='GET',
+def run(method, url, params=None, headers=None,
         timeout=5, concurrency=10, requests=100, limit=0, callback=None):
     return Hog(callback) \
-        .run(url, params, method, timeout, concurrency, requests, limit)
+        .run(method, url, params, headers, timeout, concurrency, requests, limit)
 
 
 def parse_parameters(args):
@@ -128,6 +129,18 @@ def parse_parameters(args):
                 params[m.group('key')] = m.group('value')
 
     return params
+
+
+def parse_headers(args):
+    headers = {}
+
+    if args.headers:
+        for header in args.headers:
+            m = re.match(r'(?P<name>[^:]+):(?P<value>.+)', header)
+            if m:
+                headers[m.group('name')] = m.group('value')
+
+    return headers
 
 
 def get_parser():
@@ -147,6 +160,8 @@ def get_parser():
                         help='Timeout limit in seconds')
     parser.add_argument('-p', dest='params', nargs='*',
                         help='Parameters (in key=value format)')
+    parser.add_argument('-H', dest='headers', nargs='*',
+                        help='Headers (in header:value format)')
     parser.add_argument('-f', dest='paramfile',
                         help='File contains parameters (multiple key=value)')
     parser.add_argument('-m', dest='method', default='GET',
@@ -205,6 +220,7 @@ def print_result(result):
 def main():
     args = get_parser().parse_args()
     params = parse_parameters(args)
+    headers = parse_headers(args)
 
     # Running information
     print(HR)
@@ -216,7 +232,7 @@ def main():
     print(HR)
 
     # Let's begin!
-    result = Hog(callback).run(args.url, params, args.method,
+    result = Hog(callback).run(args.method, args.url, params, headers,
                                int(args.timeout), int(args.concurrency),
                                int(args.requests), int(args.limit))
 
